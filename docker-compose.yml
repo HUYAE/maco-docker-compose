@@ -1,0 +1,87 @@
+# docker-compose 사용시의 설정파일: yml 버전설정
+version: '3'
+services:
+  db:
+    # 실행할 이미지 설정
+    image: mysql:5.7.36
+
+    # 환경 설정
+    environment:
+      - MYSQL_ROOT_HOST=${DB_ROOT_HOST} # 호스트
+      - MYSQL_DATABASE=${DB_NAME}       # DB명
+      - MYSQL_USER=${DB_USER}           # 유저
+      - MYSQL_PASSWORD=${DB_PASS}       # 패스워드
+      - MYSQL_ROOT_PASSWORD=${DB_PASS}  # 루트 패스워드
+      - TZ=${TZ}                        # 타임존
+
+    # 호스트 포트번호 : 컨테이너 포트번호 (포트포워딩)
+    ports:
+      - '3306:3306'
+
+    # 호스트 폴더 : 컨테이너 폴더
+    volumes:
+      - ./db/conf:/etc/mysql/conf.d/:ro
+      - mysqldata:/var/lib/mysql
+      - ./db/logs:/var/log/mysql
+
+    # 네트워크 설정
+    networks:
+      - backend
+
+  api:
+    image: node:19.6.0-buster
+    environment:
+      - MYSQL_SERVER=db
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASS}
+      - MYSQL_DATABASE=${DB_NAME}
+      - TZ=${TZ}
+      - CHOKIDAR_USEPOLLING=true
+
+    # 컨테이너 설정시 사용할 터미널 설정
+    tty: true
+
+    # 호스트OS 포트번호 : Docker컨테이너 포트번호
+    ports:
+      - '8000:8000'
+
+    # 호스트OS 폴더 : Docker컨테이너 폴더
+    volumes:
+      - ./api:/app
+
+    # 컨테이너가 실행될 때 자동지정될 폴더
+    working_dir: /app
+
+    # 컨테이너가 실행될 때 자동 커맨드
+    command:
+      npm run start:dev
+
+    networks:
+      - backend
+
+    # 컨테이너가 실행될 때 의존하는 컨테이너
+    depends_on:
+      - db
+
+  next:
+    image: node:19.6.0-buster
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    tty: true
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./next:/app
+    working_dir: /app
+    command:
+      npm run start
+    networks:
+      - backend
+    depends_on:
+      - api
+
+networks:
+  backend:
+
+volumes:
+  mysqldata:
